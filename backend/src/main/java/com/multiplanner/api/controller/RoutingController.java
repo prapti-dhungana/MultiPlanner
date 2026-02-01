@@ -25,10 +25,24 @@ public class RoutingController {
     // Multi-leg (From -> Stop1 -> Stop2 -> To)
     @PostMapping("/route/multi")
     public String routeMulti(@RequestBody MultiRouteRequest request) {
-        return routingService.routeMulti(request.stops());
+        return routingService.routeMulti(
+            request.stops(),
+            request.preferences(),
+            request.modes()
+        );
     }
 
     public record RouteRequest(Station from, Station to) {}
 
-    public record MultiRouteRequest(List<Station> stops) {}
+    public record MultiRouteRequest(
+        List<Station> stops,
+        Preferences preferences,
+        Modes modes
+    ) {}
+
+    public record Preferences(SortBy sortBy) {}
+
+    public record Modes(Boolean includeBus, Boolean includeTram) {}
+
+    public enum SortBy { FASTEST, FEWEST_TRANSFERS }
 }

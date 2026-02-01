@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.multiplanner.api.model.Station;
+import com.multiplanner.api.controller.RoutingController;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -13,6 +14,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+
 
 @Service
 public class RoutingService {
@@ -55,7 +57,7 @@ public class RoutingService {
     }
 
     /**
-     * Single-leg TfL routing from -> to.
+         Single-leg TfL routing from -> to.
      */
     public String routeStationToStation(Station from, Station to) {
         String fromId = resolveStopPointId(from);
@@ -70,7 +72,17 @@ public class RoutingService {
 
         // Return a smaller, UI-friendly summary shape
         try {
-            ObjectNode summary = buildLegSummary(from.getName(), to.getName(), fromId, toId, journeyJson);
+            ObjectNode summary = buildLegSummary(
+                from.getName(),
+                to.getName(),
+                fromId,
+                toId,
+                journeyJson,
+                RoutingController.SortBy.FASTEST,
+                true,
+                true
+            );
+
             return objectMapper.writeValueAsString(summary);
         } catch (Exception e) {
             throw new RuntimeException("Failed to build route summary", e);
@@ -82,7 +94,11 @@ public class RoutingService {
      * Input: [A, B, C, D]
      * Output: legs A->B, B->C, C->D
      */
-    public String routeMulti(List<Station> stops) {
+    public String routeMulti(
+        List<Station> stops,
+        RoutingController.Preferences preferences,
+        RoutingController.Modes modes
+    ) {
         if (stops == null || stops.size() < 2) {
             throw new IllegalArgumentException("Need at least 2 stops");
         }
@@ -93,8 +109,16 @@ public class RoutingService {
                 throw new IllegalArgumentException("Stop at index " + i + " is null");
             }
         }
+        // defaults
+        RoutingController.SortBy sortBy = (preferences != null && preferences.sortBy() != null)
+            ? preferences.sortBy()
+            : RoutingController.SortBy.FASTEST;
 
-        // Resolve all ids once (saves repeated searches if a stop is reused)
+        boolean includeBus = (modes != null && modes.includeBus() != null) && modes.includeBus();
+        boolean includeTram = (modes != null && modes.includeTram() != null) && modes.includeTram();
+
+
+        // Resolve all ids once 
         List<String> ids = new ArrayList<>();
         for (Station s : stops) {
             ids.add(resolveStopPointId(s));
@@ -120,7 +144,7 @@ public class RoutingService {
                 // Use cached journey results per leg (fromId -> toId)
                 String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5);
 
-                ObjectNode legSummary = buildLegSummary(from.getName(), to.getName(), fromId, toId, journeyJson);
+                ObjectNode legSummary = buildLegSummary(from.getName(), to.getName(), fromId, toId, journeyJson, sortBy, includeBus, includeTram);
 
                 totalDuration += legSummary.path("durationMinutes").asInt(0);
                 totalInterchanges += legSummary.path("interchanges").asInt(0);
@@ -144,7 +168,16 @@ public class RoutingService {
     /**
      * Build a smaller, UI-friendly leg summary from the raw TfL JourneyResults JSON.
      */
-    private ObjectNode buildLegSummary(String fromName, String toName, String fromId, String toId, String journeyJson) throws Exception {
+    private ObjectNode buildLegSummary(
+        String fromName,
+        String toName,
+        String fromId,
+        String toId,
+        String journeyJson,
+        RoutingController.SortBy sortBy,
+        boolean includeBus,
+        boolean includeTram
+    ) throws Exception {
         JsonNode root = objectMapper.readTree(journeyJson);
 
         JsonNode journeys = root.get("journeys");
@@ -152,8 +185,7 @@ public class RoutingService {
             throw new IllegalArgumentException("TfL returned no journeys");
         }
 
-        // Takes the first option
-        JsonNode best = journeys.get(0);
+        JsonNode best = pickBestJourney((ArrayNode) journeys, sortBy, includeBus, includeTram);
 
         int duration = best.path("duration").asInt(0);
         String start = best.path("startDateTime").asText(null);
@@ -170,6 +202,7 @@ public class RoutingService {
                 ObjectNode seg = objectMapper.createObjectNode();
 
                 String mode = leg.path("mode").path("id").asText(null);
+
                 String line = leg.path("routeOptions").isArray() && leg.path("routeOptions").size() > 0
                     ? leg.path("routeOptions").get(0).path("name").asText(null)
                     : null;
@@ -206,6 +239,7 @@ public class RoutingService {
 
         return out;
     }
+
 
     /**
      * Estimate interchanges.
@@ -274,4 +308,61 @@ public class RoutingService {
 
         return roundedTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'"));
     }
+
+    private JsonNode pickBestJourney(
+        ArrayNode journeys,
+        RoutingController.SortBy sortBy,
+        boolean includeBus,
+        boolean includeTram
+    ) {
+        JsonNode best = null;
+
+        for (JsonNode j : journeys) {
+            if (!journeyAllowedByModes(j, includeBus, includeTram)) {
+                continue;
+            }
+
+            if (best == null) {
+                best = j;
+                continue;
+            }
+
+            int durJ = j.path("duration").asInt(Integer.MAX_VALUE);
+            int durBest = best.path("duration").asInt(Integer.MAX_VALUE);
+
+            int intJ = estimateInterchanges(j.get("legs"));
+            int intBest = estimateInterchanges(best.get("legs"));
+
+            if (sortBy == RoutingController.SortBy.FEWEST_TRANSFERS) {
+                // primary: fewest interchanges, tie-break: shortest duration
+                if (intJ < intBest || (intJ == intBest && durJ < durBest)) {
+                    best = j;
+                }
+            } else {
+                // FASTEST default: shortest duration, tie-break: fewest interchanges
+                if (durJ < durBest || (durJ == durBest && intJ < intBest)) {
+                    best = j;
+                }
+            }
+        }
+
+        if (best == null) {
+            throw new IllegalArgumentException("No journeys matched mode filters (bus/tram).");
+        }
+
+        return best;
+    }
+
+    private boolean journeyAllowedByModes(JsonNode journey, boolean includeBus, boolean includeTram) {
+        JsonNode legs = journey.get("legs");
+        if (legs == null || !legs.isArray()) return true;
+
+        for (JsonNode leg : legs) {
+            String mode = leg.path("mode").path("id").asText("").toLowerCase();
+            if (!includeBus && "bus".equals(mode)) return false;
+            if (!includeTram && "tram".equals(mode)) return false;
+        }
+        return true;
+    }
+
 }
