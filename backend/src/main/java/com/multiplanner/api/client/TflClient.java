@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.List;
+
 @Component
 public class TflClient {
 
@@ -21,7 +23,7 @@ public class TflClient {
         this.restClient = RestClient.create();
     }
 
-    /** Search TfL StopPoints by a station name (e.g., "Lewisham"). */
+    /** Search TfL StopPoints by a station name */
     public String searchStopPoints(String query) {
         String url = UriComponentsBuilder
                 .fromHttpUrl(baseUrl)
@@ -38,12 +40,28 @@ public class TflClient {
 
     /** Journey planner between two TfL stop ids (StopPoint ids). */
     public String journeyResults(String fromStopId, String toStopId) {
-        String url = UriComponentsBuilder
+        // Restrict modes 
+        List<String> allowedModes = List.of(
+                "national-rail",
+                "overground",
+                "elizabeth-line",
+                "tube",
+                "dlr",
+                "tram",
+                "walking"
+        );
+
+        UriComponentsBuilder b = UriComponentsBuilder
                 .fromHttpUrl(baseUrl)
                 .path("/Journey/JourneyResults/{from}/to/{to}")
-                .queryParam("app_key", appKey)
-                .buildAndExpand(fromStopId, toStopId)
-                .toUriString();
+                .queryParam("app_key", appKey);
+
+        // Important: add multiple mode params (?mode=a&mode=b&...)
+        for (String m : allowedModes) {
+            b.queryParam("mode", m);
+        }
+
+        String url = b.buildAndExpand(fromStopId, toStopId).toUriString();
 
         return restClient.get()
                 .uri(url)
