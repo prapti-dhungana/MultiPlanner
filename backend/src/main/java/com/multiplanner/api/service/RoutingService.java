@@ -68,7 +68,9 @@ public class RoutingService {
         String departAtRounded5 = roundNowTo5MinKey();
 
         // call TfL once; result is cached
-        String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5);
+        String modesCsv = buildModesCsv(true, true); // include everything for single-leg
+        String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5, modesCsv);
+
 
         // Return a smaller, UI-friendly summary shape
         try {
@@ -116,6 +118,7 @@ public class RoutingService {
 
         boolean includeBus = (modes != null && modes.includeBus() != null) && modes.includeBus();
         boolean includeTram = (modes != null && modes.includeTram() != null) && modes.includeTram();
+        String modesCsv = buildModesCsv(includeBus, includeTram);
 
 
         // Resolve all ids once 
@@ -142,7 +145,7 @@ public class RoutingService {
                 String toId = ids.get(i + 1);
 
                 // Use cached journey results per leg (fromId -> toId)
-                String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5);
+                String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5, modesCsv);
 
                 ObjectNode legSummary = buildLegSummary(from.getName(), to.getName(), fromId, toId, journeyJson, sortBy, includeBus, includeTram);
 
@@ -364,5 +367,23 @@ public class RoutingService {
         }
         return true;
     }
+
+    private String buildModesCsv(boolean includeBus, boolean includeTram) {
+        // "include everything" baseline (rail + walking + bus + tram based on toggles)
+        // You can tweak this list later, but this is a sensible TfL set for London.
+        List<String> modes = new ArrayList<>();
+        modes.add("walking");
+        modes.add("tube");
+        modes.add("dlr");
+        modes.add("overground");
+        modes.add("national-rail");
+        modes.add("elizabeth-line");
+
+        if (includeBus) modes.add("bus");
+        if (includeTram) modes.add("tram");
+
+        return String.join(",", modes);
+    }
+
 
 }

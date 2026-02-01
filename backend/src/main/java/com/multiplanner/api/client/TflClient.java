@@ -37,11 +37,17 @@ public class TflClient {
     }
 
     /** Journey planner between two TfL stop ids (StopPoint ids). */
-    public String journeyResults(String fromStopId, String toStopId) {
-        String url = UriComponentsBuilder
+        public String journeyResults(String fromStopId, String toStopId, String modesCsv) {
+        UriComponentsBuilder builder = UriComponentsBuilder
                 .fromHttpUrl(baseUrl)
                 .path("/Journey/JourneyResults/{from}/to/{to}")
-                .queryParam("app_key", appKey)
+                .queryParam("app_key", appKey);
+
+        if (modesCsv != null && !modesCsv.isBlank()) {
+                builder.queryParam("mode", modesCsv);
+        }
+
+        String url = builder
                 .buildAndExpand(fromStopId, toStopId)
                 .toUriString();
 
@@ -49,5 +55,6 @@ public class TflClient {
                 .uri(url)
                 .retrieve()
                 .body(String.class);
-    }
+        }
+
 }
