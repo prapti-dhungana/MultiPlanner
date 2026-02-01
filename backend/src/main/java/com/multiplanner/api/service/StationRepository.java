@@ -34,8 +34,7 @@ public class StationRepository {
             sql,
             (rs, rowNum) -> new Station(
                 rs.getString("code"),
-                rs.getString("name"),
-                rs.getString("town")
+                rs.getString("name")
             ),
             q,   //for % trigram match
             q,   // for LIKE
