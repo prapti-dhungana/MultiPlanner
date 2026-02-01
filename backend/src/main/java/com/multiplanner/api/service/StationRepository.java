@@ -37,7 +37,7 @@ public class StationRepository {
                 rs.getString("name"),
                 rs.getString("town")
             ),
-            
+            q,   //for % trigram match
             q,   // for LIKE
             q    // for similarity()
         );
