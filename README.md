@@ -4,7 +4,7 @@ A full-stack web application for planning multi-stop rail journeys with an empha
 
 Users can search stations, add and reorder intermediate stops, and compute the best overall itinerary using live Transport for London (TfL) routing data.
 
----
+
 
 ## Why this project?
 
@@ -18,7 +18,6 @@ MultiPlanner focuses on:
 
 The project is primarily an exploration of system design and backend architecture, rather than just UI.
 
----
 
 ## Core Features
 
@@ -43,7 +42,6 @@ The project is primarily an exploration of system design and backend architectur
     - station lookups
     - TfL journey results (5-minute time buckets)
 
----
 
 ## Architecture Overview
 
@@ -68,7 +66,6 @@ The project is primarily an exploration of system design and backend architectur
   - No frontend-side routing logic
   - No external station lookup APIs
 
----
 
 ### Frontend (React + TypeScript + Vite)
 
@@ -81,7 +78,6 @@ The project is primarily an exploration of system design and backend architectur
   - Focus is correctness, data flow, and UX clarity
   - Errors are surfaced clearly from backend responses
 
----
 
 ## Running Locally
 
@@ -103,7 +99,7 @@ You must create an account to acces their free api key
    https://api-portal.tfl.gov.uk/
 
 2. Configure environment variables:
-   Create a `.env` file
+   - Create a `.env` file
    ```bash
    cp .env.example .env
 
@@ -111,15 +107,16 @@ You must create an account to acces their free api key
    TFL_APP_KEY=your_key_here
 
 4. Load postgres
+   ```bash
    cd infra
    docker compose up -d
 
 4. Start the backend
+   ```bash
    cd backend
    mvn spring-boot:run
 
 5. Start the frontened
+   ```bash
    npm ci
    npm run dev
-
-![alt text](image-1.png)
