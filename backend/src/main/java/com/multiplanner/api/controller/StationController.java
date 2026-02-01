@@ -8,7 +8,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.multiplanner.api.model.Station;
 import com.multiplanner.api.service.StationService;
-
+/**
+ * REST controller for station search.
+ * - Exposes an endpoint used by the frontend station search inputs
+ * - This intentionally avoids external APIs and queries a locally-seeded NaPTAN dataset
+ */
 @RestController
 public class StationController{
     private final StationService stationService;

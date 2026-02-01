@@ -3,7 +3,6 @@ INSERT INTO stations (
   naptan_code,
   name,
   locality,
-  town,
   stop_type,
   lat,
   lon
@@ -13,7 +12,6 @@ SELECT
   "NaptanCode",
   "CommonName",
   "LocalityName",
-  "Town",
   "StopType",
   NULLIF("Latitude",'')::double precision,
   NULLIF("Longitude",'')::double precision

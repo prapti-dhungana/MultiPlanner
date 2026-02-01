@@ -55,7 +55,6 @@ CREATE TABLE stations (
   naptan_code TEXT,
   name TEXT NOT NULL,
   locality TEXT,
-  town TEXT,
   stop_type TEXT,
   lat DOUBLE PRECISION,
   lon DOUBLE PRECISION
@@ -64,4 +63,3 @@ CREATE TABLE stations (
 -- Autocomplete / similarity
 CREATE INDEX stations_name_trgm_idx ON stations USING gin (name gin_trgm_ops);
 CREATE INDEX stations_locality_trgm_idx ON stations USING gin (locality gin_trgm_ops);
-CREATE INDEX stations_town_trgm_idx ON stations USING gin (town gin_trgm_ops);

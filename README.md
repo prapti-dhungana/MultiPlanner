@@ -1,61 +1,117 @@
 # MultiPlanner
-A web application that allows users to plan multi-stop rail journeys and find the fastest, cheapest-estimated, or most reliable routes using real timetable data.
+
+A full-stack web application for planning multi-stop rail journeys with an emphasis on route optimisation.
+
+Users can search stations, add and reorder intermediate stops, and compute the best overall itinerary using live Transport for London (TfL) routing data.
+
 
 ## Why this project?
 
-Most journey planners optimise for a single origin and destination.
-This project focuses on journeys involving multiple stops, allowing users to explicitly choose intermediate stations
-(e.g. London -> Birmingham -> Manchester -> Liverpool) and compute the best overall itinerary.
+Most journey planners optimise for a single origin to destination model.
+However, in reality, many journeys can involve many intermediate stops (e.g. meeting someone or planning a trip).
 
-The goal is to explore:
-- route optimisation across multiple legs
-- real-time aware journey planning
-- system design patterns used in large-scale transport platforms
+MultiPlanner focuses on:
+- explicit multi-stop routing
+- reasoning about journeys across multiple legs
+- modelling how large transport platforms structure routing, caching, and APIs
 
-## Features
-
-### Core 
-- Station search with autocomplete
-- Multi-stop journey planning (ordered stops)
-- Fastest / cheapest-estimated / fewest-changes sorting
-- Journey breakdown by leg
-- Cached API responses for performance
-
-### Planned
-- Real-time delay and disruption overlays
-- Reliability scoring for connections
-- Journey re-ranking based on live conditions
-- AWS deployment and monitoring
+The project is primarily an exploration of system design and backend architecture, rather than just UI.
 
 
-## Repository Structure
+## Core Features
 
-- `frontend/` – React + TypeScript web application
-- `backend/` – Spring Boot REST API
-- `infra/` – Docker and infrastructure configuration
-- `.github/` – CI workflows
+- **Autocomplete Station Search**
+  - Backed by a PostgreSQL NaPTAN dataset (London rail stations only for now)
+  - No external API calls for search
+
+- **Multi-stop journey planning**
+  - Add, remove, and reorder stops
+  - Routes are computed per adjacent leg and combined
+
+- **Routing options**
+  - Fastest vs fewest-changes sorting
+  - Transport mode filtering (bus, tram; extensible)
+
+- **Journey breakdown**
+  - Per-leg summaries
+  - Segment-level details (mode, line, direction, duration)
+
+- **Caching for performance**
+  - Redis-backed caching for:
+    - station lookups
+    - TfL journey results (5-minute time buckets)
+
+
+## Architecture Overview
+
+### Backend (Spring Boot, Java)
+
+- **Layered architecture**
+  - `controller` – REST endpoints and request validation
+  - `service` – routing logic, TfL integration, optimisation rules
+  - `repository` – database access (station search)
+  - `client` – external API calls (TfL)
+  - `config` – CORS, caching, exception handling
+
+- **design**
+  - Station search is DB-backed (NaPTAN), not API-backed
+  - Routing is composed of independent leg computations
+  - Business logic lives entirely in services
+  - Controllers are thin and declarative
+  - Global exception handler provides clean API errors
+
+### Frontend (React + TypeScript + Vite)
+
+- Component-based structure:
+  - `StationSearch` – debounced autocomplete
+  - `RouteOptionsBar` – stylised filters
+  - Service layer for API calls and error handling
 
 ## Running Locally
-This project uses the Transport for London (TfL) Unified API.
 
-1. Create a TfL API key at https://api-portal.tfl.gov.uk/
-2. Copy `.env.example` to `.env`
+This project uses the Transport for London Unified API.
+You must create an account to acces their free api key 
+
+
+### Prerequisites
+- Java 21
+- Maven
+- Node.js (18+ recommended)
+- TfL API key
+- Docker for Postgres + Redis
+
+
+### Setup
+
+1. Create a TfL API key  
+   https://api-portal.tfl.gov.uk/
+
+2. Configure environment variables at root:
+   ```bash
+   touch .env
+   cp .env.example .env
+
 3. Add your key:
-
+   ```bash
    TFL_APP_KEY=your_key_here
 
-4. Start the backend:
+4. Load postgres
+   ```bash
+   cd infra
+   docker compose up -d
+
+4. Start the backend
+   ```bash
    cd backend
    mvn spring-boot:run
 
-4. Start the frontend:
-    cd frontend
-    npm install
-    npm run dev
- 
+5. Start the frontened
+   ```bash
+   npm ci
+   npm run dev
 
-## Project Status
+### Application
+<img width="1175" height="908" alt="image" src="https://github.com/user-attachments/assets/5c62b2fd-2624-46b4-bcd7-2ce4476564cf" />
 
-In active development  
-Current focus: repository setup, API contracts, and station search MVP.
+<img width="593" height="886" alt="image" src="https://github.com/user-attachments/assets/3b641f89-c183-42be-801f-34b859d20514" />
 

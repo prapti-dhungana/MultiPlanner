@@ -1,15 +1,20 @@
 package com.multiplanner.api.model;
 
+/**
+ * Station model used for routing and autocomplete.
+ *
+ * Represents a London rail station identified by a (NaPTAN) code and
+ * a more readable name
+ */
+
 public class Station {
 
-    private String code;
+    private String code; // NaPTAN stop/station code
     private String name;
-    private String town;
 
-    public Station(String code, String name, String town) {
+    public Station(String code, String name) {
         this.code = code;
         this.name = name;
-        this.town = town;
     }
 
     public String getCode() {
@@ -18,10 +23,6 @@ public class Station {
 
     public String getName() {
         return name;
-    }
-
-    public String getTown() {
-        return town;
     }
 }
 

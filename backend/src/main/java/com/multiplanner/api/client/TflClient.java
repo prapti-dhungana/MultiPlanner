@@ -16,12 +16,16 @@ public class TflClient {
             @Value("${tfl.base-url}") String baseUrl,
             @Value("${tfl.app-key}") String appKey
     ) {
+        if (baseUrl == null || appKey == null) {
+            throw new IllegalStateException("TfL base URL and app key must be configured");
+        }
+        
         this.baseUrl = baseUrl;
         this.appKey = appKey;
         this.restClient = RestClient.create();
     }
 
-    /** Search TfL StopPoints by a station name (e.g., "Lewisham"). */
+    //Search TfL StopPoints by a station name
     public String searchStopPoints(String query) {
         String url = UriComponentsBuilder
                 .fromHttpUrl(baseUrl)
@@ -36,7 +40,7 @@ public class TflClient {
                 .body(String.class);
     }
 
-    /** Journey planner between two TfL stop ids (StopPoint ids). */
+    // Journey planner between two stop ids 
         public String journeyResults(String fromStopId, String toStopId, String modesCsv) {
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromHttpUrl(baseUrl)

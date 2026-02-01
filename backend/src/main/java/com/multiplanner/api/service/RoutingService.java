@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.multiplanner.api.model.Station;
 import com.multiplanner.api.controller.RoutingController;
+import com.multiplanner.api.model.Station;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -15,7 +15,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * Routing domain service.
+ *  - convert Station names to TfL StopPoint IDs 
+ *  - fetch TfL JourneyResults 
+ *  - select the best journey based on sorting/mode filters.
+ */
 @Service
 public class RoutingService {
 
@@ -26,13 +31,21 @@ public class RoutingService {
         this.objectMapper = objectMapper;
         this.journeyCacheService = journeyCacheService;
     }
-
-    /**
-     * Resolve a Station -> TfL StopPoint id using TfL StopPoint search.
-     */
+    
+  //Resolve a Station into a TfL StopPoint ID.
     public String resolveStopPointId(Station station) {
-        if (station == null || station.getName() == null || station.getName().isBlank()) {
-            throw new IllegalArgumentException("Station name is required to resolve StopPoint id");
+        if (station == null) {
+            throw new IllegalArgumentException("Station is required");
+        }
+
+        // Prefer DB-backed StopPoint 
+        if (station.getCode() != null && !station.getCode().isBlank()) {
+            return station.getCode();
+        }
+
+        //  No code, then fall back to TfL search by name
+        if (station.getName() == null || station.getName().isBlank()) {
+            throw new IllegalArgumentException("Station name is required");
         }
 
         try {
@@ -40,95 +53,91 @@ public class RoutingService {
             JsonNode root = objectMapper.readTree(json);
 
             JsonNode matches = root.get("matches");
-            if (matches == null || !matches.isArray() || matches.size() == 0) {
-                throw new IllegalArgumentException("No TfL StopPoint match for: " + station.getName());
+            if (matches == null || !matches.isArray() || matches.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "No TfL StopPoint match for " + station.getName()
+                );
             }
 
-            JsonNode first = matches.get(0);
-            JsonNode id = first.get("id");
+            JsonNode id = matches.get(0).get("id");
             if (id == null || id.asText().isBlank()) {
-                throw new IllegalArgumentException("TfL StopPoint match missing id for: " + station.getName());
+                throw new IllegalArgumentException(
+                    "TfL StopPoint match missing id for " + station.getName()
+                );
             }
 
             return id.asText();
+
+        } catch (IllegalArgumentException e) {
+            throw e; 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to resolve TfL StopPoint for " + station.getName(), e);
+            throw new RuntimeException(
+                "Failed to resolve TfL StopPoint for " + station.getName(), e
+            );
         }
     }
 
-    /**
-         Single-leg TfL routing from -> to.
-     */
+
+    //Single leg TfL routing (from) -> (to).
     public String routeStationToStation(Station from, Station to) {
         String fromId = resolveStopPointId(from);
         String toId = resolveStopPointId(to);
 
-        // Cache key includes a "departAt" bucket rounded to 5 minutes
-        // so repeated calls within that window don't hammer TfL.
+        // Use a 5-minute bucket for caching 
         String departAtRounded5 = roundNowTo5MinKey();
 
-        // call TfL once; result is cached
-        String modesCsv = buildModesCsv(true, true); // include everything for single-leg
-        String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5, modesCsv);
+        //Default options for single-leg include everything + fastest
+        RouteOptions options = new RouteOptions(RoutingController.SortBy.FASTEST, true, true);
+        String modesCsv = buildModesCsv(options.includeBus(), options.includeTram());
 
-
-        // Return a smaller, UI-friendly summary shape
         try {
-            ObjectNode summary = buildLegSummary(
-                from.getName(),
-                to.getName(),
-                fromId,
-                toId,
-                journeyJson,
-                RoutingController.SortBy.FASTEST,
-                true,
-                true
-            );
-
+            ObjectNode summary = routeLegSummary(from, to, fromId, toId, departAtRounded5, options, modesCsv);
             return objectMapper.writeValueAsString(summary);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to build route summary", e);
+            // If the real cause is "bad input" (or TfL returned no journeys), surface it as 400
+            if (e instanceof IllegalArgumentException) throw (IllegalArgumentException) e;
+            if (e.getCause() instanceof IllegalArgumentException) throw (IllegalArgumentException) e.getCause();
+
+            throw new RuntimeException("Failed to build multi-route response", e);
         }
     }
 
-    /**
-     * Multi-stop routing: chains TfL JourneyResults for each adjacent pair.
-     * Input: [A, B, C, D]
-     * Output: legs A->B, B->C, C->D
-     */
+    //Chains TfL JourneyResults for each adjacent pair.
     public String routeMulti(
-        List<Station> stops,
-        RoutingController.Preferences preferences,
-        RoutingController.Modes modes
+            List<Station> stops,
+            RoutingController.Preferences preferences,
+            RoutingController.Modes modes
     ) {
         if (stops == null || stops.size() < 2) {
             throw new IllegalArgumentException("Need at least 2 stops");
         }
 
-        // Ensure no nulls sneak in
+        // Ensures no null values
         for (int i = 0; i < stops.size(); i++) {
             if (stops.get(i) == null) {
                 throw new IllegalArgumentException("Stop at index " + i + " is null");
             }
         }
-        // defaults
-        RoutingController.SortBy sortBy = (preferences != null && preferences.sortBy() != null)
-            ? preferences.sortBy()
-            : RoutingController.SortBy.FASTEST;
 
-        boolean includeBus = (modes != null && modes.includeBus() != null) && modes.includeBus();
-        boolean includeTram = (modes != null && modes.includeTram() != null) && modes.includeTram();
+        // Sorting default = fastest
+        RoutingController.SortBy sortBy = (preferences != null && preferences.sortBy() != null)
+                ? preferences.sortBy()
+                : RoutingController.SortBy.FASTEST;
+
+        // Mode defaults= include everything until UI provides toggles
+        boolean includeBus = (modes == null || modes.includeBus() == null) ? true : modes.includeBus();
+        boolean includeTram = (modes == null || modes.includeTram() == null) ? true : modes.includeTram();
+
+        RouteOptions options = new RouteOptions(sortBy, includeBus, includeTram);
         String modesCsv = buildModesCsv(includeBus, includeTram);
 
-
-        // Resolve all ids once 
+        // Resolve all ids at once 
         List<String> ids = new ArrayList<>();
         for (Station s : stops) {
             ids.add(resolveStopPointId(s));
         }
 
-        // Use one rounded departAt bucket for the whole multi-leg request
-        // (keeps cache keys consistent across legs in the same button click).
+        // keeps cache keys consistent across legs in the same button click
         String departAtRounded5 = roundNowTo5MinKey();
 
         try {
@@ -144,10 +153,7 @@ public class RoutingService {
                 String fromId = ids.get(i);
                 String toId = ids.get(i + 1);
 
-                // Use cached journey results per leg (fromId -> toId)
-                String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5, modesCsv);
-
-                ObjectNode legSummary = buildLegSummary(from.getName(), to.getName(), fromId, toId, journeyJson, sortBy, includeBus, includeTram);
+                ObjectNode legSummary = routeLegSummary(from, to, fromId, toId, departAtRounded5, options, modesCsv);
 
                 totalDuration += legSummary.path("durationMinutes").asInt(0);
                 totalInterchanges += legSummary.path("interchanges").asInt(0);
@@ -164,22 +170,57 @@ public class RoutingService {
 
             return objectMapper.writeValueAsString(response);
         } catch (Exception e) {
+            // If the real cause is "bad input" (or TfL returned no journeys), surface it as 400
+            if (e instanceof IllegalArgumentException) throw (IllegalArgumentException) e;
+            if (e.getCause() instanceof IllegalArgumentException) throw (IllegalArgumentException) e.getCause();
+
             throw new RuntimeException("Failed to build multi-route response", e);
         }
+
     }
 
-    /**
-     * Build a smaller, UI-friendly leg summary from the raw TfL JourneyResults JSON.
-     */
+    // HELPERS
+    // Options used to choose the best journey from the TfL API response.
+    private record RouteOptions(
+            RoutingController.SortBy sortBy,
+            boolean includeBus,
+            boolean includeTram
+    ) {}
+
+    //Core helper used to build a singular leg
+    private ObjectNode routeLegSummary(
+            Station from,
+            Station to,
+            String fromId,
+            String toId,
+            String departAtRounded5,
+            RouteOptions options,
+            String modesCsv
+    ) throws Exception {
+        String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5, modesCsv);
+
+        return buildLegSummary(
+                from.getName(),
+                to.getName(),
+                fromId,
+                toId,
+                journeyJson,
+                options.sortBy(),
+                options.includeBus(),
+                options.includeTram()
+        );
+    }
+
+    //Builds a smaller leg summary from the raw TfL JourneyResults JSON
     private ObjectNode buildLegSummary(
-        String fromName,
-        String toName,
-        String fromId,
-        String toId,
-        String journeyJson,
-        RoutingController.SortBy sortBy,
-        boolean includeBus,
-        boolean includeTram
+            String fromName,
+            String toName,
+            String fromId,
+            String toId,
+            String journeyJson,
+            RoutingController.SortBy sortBy,
+            boolean includeBus,
+            boolean includeTram
     ) throws Exception {
         JsonNode root = objectMapper.readTree(journeyJson);
 
@@ -207,8 +248,8 @@ public class RoutingService {
                 String mode = leg.path("mode").path("id").asText(null);
 
                 String line = leg.path("routeOptions").isArray() && leg.path("routeOptions").size() > 0
-                    ? leg.path("routeOptions").get(0).path("name").asText(null)
-                    : null;
+                        ? leg.path("routeOptions").get(0).path("name").asText(null)
+                        : null;
 
                 String direction = leg.path("instruction").path("detailed").asText(null);
 
@@ -244,10 +285,7 @@ public class RoutingService {
     }
 
 
-    /**
-     * Estimate interchanges.
-     * count non-walking legs and subtract 1.
-     */
+     //Estimate interchanges by counting non-walking legs and subtracting 1.
     private int estimateInterchanges(JsonNode legs) {
         if (legs == null || !legs.isArray() || legs.size() == 0) return 0;
 
@@ -259,19 +297,14 @@ public class RoutingService {
             }
         }
 
-        // If only walked, interchanges should be 0.
         if (nonWalk <= 1) return 0;
-
         return nonWalk - 1;
     }
 
-    /**
-     * Build a simple readable summary from the legs.
-     */
+     //Build a simple readable summary from the legs.
     private String buildSummaryFromLegs(JsonNode legs) {
         if (legs == null || !legs.isArray() || legs.size() == 0) return "Journey";
 
-        // Prefer the first non-walking leg's route name if available
         for (JsonNode leg : legs) {
             String mode = leg.path("mode").path("id").asText("");
             if ("walking".equalsIgnoreCase(mode)) continue;
@@ -283,7 +316,6 @@ public class RoutingService {
             }
         }
 
-        // Fallback: list modes seen (e.g., "train + tube")
         List<String> modes = new ArrayList<>();
         for (JsonNode leg : legs) {
             String mode = leg.path("mode").path("id").asText("");
@@ -296,55 +328,58 @@ public class RoutingService {
         return String.join(" + ", modes);
     }
 
-    /**
-     * Helper: round "now" to a 5-minute bucket for cache keys.
-     */
+    // Round "now" to a 5-minute bucket for cache keys.
     private String roundNowTo5MinKey() {
         ZonedDateTime now = ZonedDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         int minute = now.getMinute();
         int rounded = (minute / 5) * 5;
 
         ZonedDateTime roundedTime = now
-            .withMinute(rounded)
-            .withSecond(0)
-            .withNano(0);
+                .withMinute(rounded)
+                .withSecond(0)
+                .withNano(0);
 
         return roundedTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'"));
     }
 
+    /**
+     * Select the "best" journey from TfL options according to:
+     *  - allowed modes 
+     *  - sorting preference 
+     */
     private JsonNode pickBestJourney(
-        ArrayNode journeys,
-        RoutingController.SortBy sortBy,
-        boolean includeBus,
-        boolean includeTram
+            ArrayNode journeys,
+            RoutingController.SortBy sortBy,
+            boolean includeBus,
+            boolean includeTram
     ) {
         JsonNode best = null;
 
-        for (JsonNode j : journeys) {
-            if (!journeyAllowedByModes(j, includeBus, includeTram)) {
+        for (JsonNode candidate : journeys) {
+            if (!journeyAllowedByModes(candidate, includeBus, includeTram)) {
                 continue;
             }
 
             if (best == null) {
-                best = j;
+                best = candidate;
                 continue;
             }
 
-            int durJ = j.path("duration").asInt(Integer.MAX_VALUE);
+            int durCandidate = candidate.path("duration").asInt(Integer.MAX_VALUE);
             int durBest = best.path("duration").asInt(Integer.MAX_VALUE);
 
-            int intJ = estimateInterchanges(j.get("legs"));
-            int intBest = estimateInterchanges(best.get("legs"));
+            int transfersCandidate = estimateInterchanges(candidate.get("legs"));
+            int transfersBest = estimateInterchanges(best.get("legs"));
 
             if (sortBy == RoutingController.SortBy.FEWEST_TRANSFERS) {
-                // primary: fewest interchanges, tie-break: shortest duration
-                if (intJ < intBest || (intJ == intBest && durJ < durBest)) {
-                    best = j;
+                if (transfersCandidate < transfersBest
+                        || (transfersCandidate == transfersBest && durCandidate < durBest)) {
+                    best = candidate;
                 }
             } else {
-                // FASTEST default: shortest duration, tie-break: fewest interchanges
-                if (durJ < durBest || (durJ == durBest && intJ < intBest)) {
-                    best = j;
+                if (durCandidate < durBest
+                        || (durCandidate == durBest && transfersCandidate < transfersBest)) {
+                    best = candidate;
                 }
             }
         }
@@ -356,6 +391,8 @@ public class RoutingService {
         return best;
     }
 
+
+     //Returns false if a journey contains a leg with a mode that is currently excluded.
     private boolean journeyAllowedByModes(JsonNode journey, boolean includeBus, boolean includeTram) {
         JsonNode legs = journey.get("legs");
         if (legs == null || !legs.isArray()) return true;
@@ -368,9 +405,8 @@ public class RoutingService {
         return true;
     }
 
+     //Build the TfL mode query parameter.
     private String buildModesCsv(boolean includeBus, boolean includeTram) {
-        // "include everything" baseline (rail + walking + bus + tram based on toggles)
-        // You can tweak this list later, but this is a sensible TfL set for London.
         List<String> modes = new ArrayList<>();
         modes.add("walking");
         modes.add("tube");
@@ -384,6 +420,4 @@ public class RoutingService {
 
         return String.join(",", modes);
     }
-
-
 }

@@ -10,9 +10,7 @@ import type { MultiRouteResponse, LegSummary, Segment, RouteMultiOptions } from 
 
 type Stop = Station | null;
 
-/**
- * Format minutes nicely (e.g., 14 min, 1h, 1h 10m)
- */
+//Format minutes nicely (e.g., 14 min, 1h, 1h 10m)
 function formatMinutes(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -21,9 +19,7 @@ function formatMinutes(mins: number) {
   return `${h}h ${m}m`;
 }
 
-/**
- * Convert TfL mode ids into nicer labels.
- */
+//Convert TfL mode ids into nicer labels.
 function prettyMode(mode: string | null | undefined) {
   if (!mode) return "Travel";
   const m = mode.toLowerCase();
@@ -101,7 +97,7 @@ function LegCard({ leg, index }: { leg: LegSummary; index: number }) {
 }
 
 function App() {
-  // Stops list: [From, ...ViaStops, To]
+  // Stops list: (From, Stops, To)
   const [stops, setStops] = React.useState<Stop[]>([null, null]);
 
   //default = include everything 
@@ -162,7 +158,7 @@ function App() {
         <div>
           <h1 style={{ margin: 0 }}>MultiPlanner</h1>
           <p style={{ marginTop: 6, color: "#444" }}>
-            Station autocomplete (DB) + add/reorder stops + TfL routing
+            Plan your journey and add your stops...
           </p>
         </div>
 
@@ -265,8 +261,9 @@ function App() {
                     const data = await routeMulti(all, options);
                     setRouteResult(data);
                   } catch (e) {
-                    setRouteError(String(e));
-                  } finally {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    setRouteError(msg);
+                  }finally {
                     setRouting(false);
                   }
                 }}

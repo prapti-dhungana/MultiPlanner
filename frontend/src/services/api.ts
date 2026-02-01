@@ -59,7 +59,7 @@ export async function routeLeg(from: Station, to: Station): Promise<LegSummary> 
     body: JSON.stringify({ from, to }),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) return throwApiError(res);
   return (await res.json()) as LegSummary;
 }
 
@@ -82,8 +82,40 @@ export async function routeMulti(
     }),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) return throwApiError(res);
   return (await res.json()) as MultiRouteResponse;
 }
+
+async function throwApiError(res: Response): Promise<never> {
+  let data: any = null;
+
+  // Try JSON first 
+  try {
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      data = await res.json();
+    }
+  } catch {
+    data = null;
+  }
+
+  // Prefer backend message/error fields
+  const backendMsg =
+    (data && (data.message || data.error)) ? String(data.message || data.error) : "there are no journeys for this route";
+
+  // Fallback to plain text if JSON wasn't available/useful
+  let textMsg = "";
+  if (!backendMsg) {
+    try {
+      textMsg = await res.text();
+    } catch {
+      textMsg = "";
+    }
+  }
+
+  const msg = backendMsg || textMsg || `HTTP ${res.status}`;
+  throw new Error(msg);
+}
+
 
 
