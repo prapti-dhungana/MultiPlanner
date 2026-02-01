@@ -3,6 +3,7 @@
 export type Station = {
   code: string;
   name: string;
+  town?: string;
 };
 
 export async function searchStations(query: string): Promise<Station[]> {
@@ -17,5 +18,6 @@ export async function searchStations(query: string): Promise<Station[]> {
     throw new Error(`HTTP ${res.status}`);
   }
 
-  return (await res.json()) as Station[];
+  const data = (await res.json()) as Station[];
+  return data.slice(0, 5);
 }

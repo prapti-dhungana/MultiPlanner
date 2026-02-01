@@ -18,7 +18,7 @@ public class StationController{
     }
 
     @GetMapping("/api/stations")
-    public List<Station> searchStations(@RequestParam String query) {
+    public List<Station> searchStations(@RequestParam(required = false) String query){
         return stationService.searchStations(query);
     }
 
