@@ -18,4 +18,8 @@ SELECT
   NULLIF("Latitude",'')::double precision,
   NULLIF("Longitude",'')::double precision
 FROM naptan_raw
-WHERE "StopType" IN ('RLY', 'RSE');
+WHERE "StopType" IN ('RLY', 'RSE')
+  AND (
+    LEFT("ATCOCode", 3) = '490'
+    OR "AdministrativeAreaCode" = '82'
+  );

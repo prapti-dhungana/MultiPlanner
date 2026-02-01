@@ -5,11 +5,12 @@ import { useDebounce } from "../services/useDebounce";
 type Props = {
   label: string;
   placeholder: string;
-  onSelect: (station: Station) => void;
+  value: Station | null;
+  onChange: (station: Station | null) => void;
 };
 
-export function StationSearch({ label, placeholder, onSelect }: Props) {
-  const [query, setQuery] = React.useState("");
+export function StationSearch({ label, placeholder, value, onChange }: Props) {
+  const [query, setQuery] = React.useState(value?.name ?? "");
   const debouncedQuery = useDebounce(query, 300);
 
   const [results, setResults] = React.useState<Station[]>([]);
@@ -18,9 +19,12 @@ export function StationSearch({ label, placeholder, onSelect }: Props) {
 
   const [suppressSearch, setSuppressSearch] = React.useState(false);
 
+  // If parent changes selected value (e.g., after reorder), keep input text in sync
+  React.useEffect(() => {
+    setQuery(value?.name ?? "");
+  }, [value?.code]); // use code so it doesn't reset while typing
 
   React.useEffect(() => {
-    // Clear results if empty
     if (!debouncedQuery.trim()) {
       setResults([]);
       setError(null);
@@ -28,12 +32,10 @@ export function StationSearch({ label, placeholder, onSelect }: Props) {
       return;
     }
 
-    //dropdown disappers if search selected
     if (suppressSearch) {
-    setSuppressSearch(false);
-    return;
+      setSuppressSearch(false);
+      return;
     }
-
 
     setLoading(true);
     setError(null);
@@ -42,7 +44,7 @@ export function StationSearch({ label, placeholder, onSelect }: Props) {
       .then((stations) => setResults(stations))
       .catch((err) => setError(String(err)))
       .finally(() => setLoading(false));
-  }, [debouncedQuery]);
+  }, [debouncedQuery]); // keep your MVP behavior
 
   return (
     <div style={{ maxWidth: 520 }}>
@@ -50,17 +52,18 @@ export function StationSearch({ label, placeholder, onSelect }: Props) {
 
       <input
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+
+          // If user edits text after selecting a station, treat selection as cleared
+          if (value) onChange(null);
+        }}
         placeholder={placeholder}
         style={{ width: "100%", padding: 10, fontSize: 16 }}
       />
 
       {loading && <p style={{ marginTop: 8 }}>Loading…</p>}
-      {error && (
-        <p style={{ marginTop: 8, color: "crimson" }}>
-          Error: {error}
-        </p>
-      )}
+      {error && <p style={{ marginTop: 8, color: "crimson" }}>Error: {error}</p>}
 
       {results.length > 0 && (
         <ul
@@ -78,10 +81,10 @@ export function StationSearch({ label, placeholder, onSelect }: Props) {
               <button
                 type="button"
                 onClick={() => {
-                    setSuppressSearch(true)
-                    onSelect(s);
-                    setQuery(s.name); //update input box text
-                    setResults([]) //close dropdown
+                  setSuppressSearch(true);
+                  onChange(s);
+                  setQuery(s.name);
+                  setResults([]);
                 }}
                 style={{
                   width: "100%",

@@ -37,7 +37,7 @@ public class StationRepository {
                 rs.getString("name"),
                 rs.getString("town")
             ),
-            q,
+            
             q,   // for LIKE
             q    // for similarity()
         );
