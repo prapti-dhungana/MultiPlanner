@@ -21,7 +21,7 @@ The project is primarily an exploration of system design and backend architectur
 
 ## Core Features
 
-- **Station search with autocomplete**
+- **Autocomplete Station Search**
   - Backed by a PostgreSQL NaPTAN dataset (London rail stations only for now)
   - No external API calls for search
 
@@ -61,20 +61,14 @@ The project is primarily an exploration of system design and backend architectur
   - Controllers are thin and declarative
   - Global exception handler provides clean API errors
 
-- **What I did not use**
-  - No JPA / Hibernate (explicit SQL via JdbcTemplate for clarity)
-  - No frontend-side routing logic
-  - No external station lookup APIs
-
-
 ### Frontend (React + TypeScript + Vite)
 
 - Component-based structure:
   - `StationSearch` – debounced autocomplete
-  - `RouteOptionsBar` – Google-Maps-style filters
+  - `RouteOptionsBar` – stylised filters
   - Service layer for API calls and error handling
 
-- UI intentionally simple and functional
+- UI is simple and functional
   - Focus is correctness, data flow, and UX clarity
   - Errors are surfaced clearly from backend responses
 
@@ -90,7 +84,7 @@ You must create an account to acces their free api key
 - Maven
 - Node.js (18+ recommended)
 - TfL API key
--  Docker for Postgres + Redis
+- Docker for Postgres + Redis
 
 
 ### Setup
@@ -98,12 +92,13 @@ You must create an account to acces their free api key
 1. Create a TfL API key  
    https://api-portal.tfl.gov.uk/
 
-2. Configure environment variables:
-   - Create a `.env` file
+2. Configure environment variables at root:
    ```bash
+   touch env
    cp .env.example .env
 
 3. Add your key:
+   ```bash
    TFL_APP_KEY=your_key_here
 
 4. Load postgres
