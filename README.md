@@ -5,7 +5,6 @@ A full-stack web application for planning multi-stop rail journeys with an empha
 Users can search stations, add and reorder intermediate stops, and compute the best overall itinerary using live Transport for London (TfL) routing data.
 
 
-
 ## Why this project?
 
 Most journey planners optimise for a single origin to destination model.
@@ -54,7 +53,7 @@ The project is primarily an exploration of system design and backend architectur
   - `client` – external API calls (TfL)
   - `config` – CORS, caching, exception handling
 
-- **Key design decisions**
+- **design**
   - Station search is DB-backed (NaPTAN), not API-backed
   - Routing is composed of independent leg computations
   - Business logic lives entirely in services
@@ -67,11 +66,6 @@ The project is primarily an exploration of system design and backend architectur
   - `StationSearch` – debounced autocomplete
   - `RouteOptionsBar` – stylised filters
   - Service layer for API calls and error handling
-
-- UI is simple and functional
-  - Focus is correctness, data flow, and UX clarity
-  - Errors are surfaced clearly from backend responses
-
 
 ## Running Locally
 
@@ -94,7 +88,7 @@ You must create an account to acces their free api key
 
 2. Configure environment variables at root:
    ```bash
-   touch env
+   touch .env
    cp .env.example .env
 
 3. Add your key:
@@ -115,3 +109,9 @@ You must create an account to acces their free api key
    ```bash
    npm ci
    npm run dev
+
+### Application
+<img width="1175" height="908" alt="image" src="https://github.com/user-attachments/assets/5c62b2fd-2624-46b4-bcd7-2ce4476564cf" />
+
+<img width="593" height="886" alt="image" src="https://github.com/user-attachments/assets/3b641f89-c183-42be-801f-34b859d20514" />
+
