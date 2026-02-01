@@ -1,22 +1,6 @@
 # MultiPlanner
-
-A full-stack web application for planning multi-stop rail journeys with an emphasis on route optimisation.
-
-Users can search stations, add and reorder intermediate stops, and compute the best overall itinerary using live Transport for London (TfL) routing data.
-
-
-## Why this project?
-
-Most journey planners optimise for a single origin to destination model.
-However, in reality, many journeys can involve many intermediate stops (e.g. meeting someone or planning a trip).
-
-MultiPlanner focuses on:
-- explicit multi-stop routing
-- reasoning about journeys across multiple legs
-- modelling how large transport platforms structure routing, caching, and APIs
-
-The project is primarily an exploration of system design and backend architecture, rather than just UI.
-
+A full-stack web app for planning journeys with multiple stops.
+Users can search stations, add and reorder stops, and generate the best route using live TfL data
 
 ## Core Features
 
