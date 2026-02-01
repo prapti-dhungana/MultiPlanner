@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * Routing domain service.
- *  - resolve Station names to TfL StopPoint IDs 
+ *  - convert Station names to TfL StopPoint IDs 
  *  - fetch TfL JourneyResults 
  *  - select the best journey based on sorting/mode filters.
  */
@@ -32,11 +32,20 @@ public class RoutingService {
         this.journeyCacheService = journeyCacheService;
     }
     
-    //Resolves a Station into a TfL StopPoint id using TfL StopPoint search.
-    //Uses the cached stop point search to avoid repeated external lookups.
+  //Resolve a Station into a TfL StopPoint ID.
     public String resolveStopPointId(Station station) {
-        if (station == null || station.getName() == null || station.getName().isBlank()) {
-            throw new IllegalArgumentException("Station name is required to resolve StopPoint id");
+        if (station == null) {
+            throw new IllegalArgumentException("Station is required");
+        }
+
+        // Prefer DB-backed StopPoint 
+        if (station.getCode() != null && !station.getCode().isBlank()) {
+            return station.getCode();
+        }
+
+        //  No code, then fall back to TfL search by name
+        if (station.getName() == null || station.getName().isBlank()) {
+            throw new IllegalArgumentException("Station name is required");
         }
 
         try {
@@ -44,21 +53,30 @@ public class RoutingService {
             JsonNode root = objectMapper.readTree(json);
 
             JsonNode matches = root.get("matches");
-            if (matches == null || !matches.isArray() || matches.size() == 0) {
-                throw new IllegalArgumentException("No TfL StopPoint match for: " + station.getName());
+            if (matches == null || !matches.isArray() || matches.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "No TfL StopPoint match for " + station.getName()
+                );
             }
 
-            JsonNode first = matches.get(0);
-            JsonNode id = first.get("id");
+            JsonNode id = matches.get(0).get("id");
             if (id == null || id.asText().isBlank()) {
-                throw new IllegalArgumentException("TfL StopPoint match missing id for: " + station.getName());
+                throw new IllegalArgumentException(
+                    "TfL StopPoint match missing id for " + station.getName()
+                );
             }
 
             return id.asText();
+
+        } catch (IllegalArgumentException e) {
+            throw e; // bubble up clean API error
         } catch (Exception e) {
-            throw new RuntimeException("Failed to resolve TfL StopPoint for " + station.getName(), e);
+            throw new RuntimeException(
+                "Failed to resolve TfL StopPoint for " + station.getName(), e
+            );
         }
     }
+
 
     //Single-leg TfL routing from -> to.
     public String routeStationToStation(Station from, Station to) {
@@ -76,7 +94,11 @@ public class RoutingService {
             ObjectNode summary = routeLegSummary(from, to, fromId, toId, departAtRounded5, options, modesCsv);
             return objectMapper.writeValueAsString(summary);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to build route summary", e);
+            // If the real cause is "bad input" (or TfL returned no journeys), surface it as 400
+            if (e instanceof IllegalArgumentException) throw (IllegalArgumentException) e;
+            if (e.getCause() instanceof IllegalArgumentException) throw (IllegalArgumentException) e.getCause();
+
+            throw new RuntimeException("Failed to build multi-route response", e);
         }
     }
 
@@ -149,8 +171,13 @@ public class RoutingService {
 
             return objectMapper.writeValueAsString(response);
         } catch (Exception e) {
+            // If the real cause is "bad input" (or TfL returned no journeys), surface it as 400
+            if (e instanceof IllegalArgumentException) throw (IllegalArgumentException) e;
+            if (e.getCause() instanceof IllegalArgumentException) throw (IllegalArgumentException) e.getCause();
+
             throw new RuntimeException("Failed to build multi-route response", e);
         }
+
     }
 
     // HELPERS

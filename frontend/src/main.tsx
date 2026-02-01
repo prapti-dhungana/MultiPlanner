@@ -265,8 +265,9 @@ function App() {
                     const data = await routeMulti(all, options);
                     setRouteResult(data);
                   } catch (e) {
-                    setRouteError(String(e));
-                  } finally {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    setRouteError(msg);
+                  }finally {
                     setRouting(false);
                   }
                 }}
