@@ -10,10 +10,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Global API exception handler.
- * Keeps frontend errors clear and consistent.
+ * Keeps frontend errors clear and consistent.#
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -24,12 +25,20 @@ public class ApiExceptionHandler {
         return errorBody("bad_request", ex.getMessage(), req.getRequestURI());
     }
 
+    // If someone opens a missing path, return 404 
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, Object> handleNotFound(NoResourceFoundException ex, HttpServletRequest req) {
+        return errorBody("not_found", "Endpoint not found", req.getRequestURI());
+    }
+
+    // Catch-all for real server failures
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Map<String, Object> handleGeneric(Exception ex, HttpServletRequest req) {
         return errorBody(
             "internal_error",
-            "Something went wrong while planning the route.",
+            "Something went wrong on the server.",
             req.getRequestURI()
         );
     }
@@ -42,15 +51,4 @@ public class ApiExceptionHandler {
         body.put("path", path);
         return body;
     }
-
-    @ExceptionHandler(RuntimeException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, Object> handleRuntime(RuntimeException ex, HttpServletRequest req) {
-        if (ex.getCause() instanceof IllegalArgumentException iae) {
-            return errorBody("bad_request", iae.getMessage(), req.getRequestURI());
-        }
-        // otherwise let it fall through as 500:
-        return errorBody("internal_error", "Something went wrong while planning the route.", req.getRequestURI());
-    }
-
 }

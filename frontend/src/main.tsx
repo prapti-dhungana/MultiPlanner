@@ -10,9 +10,7 @@ import type { MultiRouteResponse, LegSummary, Segment, RouteMultiOptions } from 
 
 type Stop = Station | null;
 
-/**
- * Format minutes nicely (e.g., 14 min, 1h, 1h 10m)
- */
+//Format minutes nicely (e.g., 14 min, 1h, 1h 10m)
 function formatMinutes(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -21,9 +19,7 @@ function formatMinutes(mins: number) {
   return `${h}h ${m}m`;
 }
 
-/**
- * Convert TfL mode ids into nicer labels.
- */
+//Convert TfL mode ids into nicer labels.
 function prettyMode(mode: string | null | undefined) {
   if (!mode) return "Travel";
   const m = mode.toLowerCase();
@@ -101,7 +97,7 @@ function LegCard({ leg, index }: { leg: LegSummary; index: number }) {
 }
 
 function App() {
-  // Stops list: [From, ...ViaStops, To]
+  // Stops list: (From, Stops, To)
   const [stops, setStops] = React.useState<Stop[]>([null, null]);
 
   //default = include everything 

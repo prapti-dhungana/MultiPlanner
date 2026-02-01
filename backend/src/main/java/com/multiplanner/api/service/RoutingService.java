@@ -69,7 +69,7 @@ public class RoutingService {
             return id.asText();
 
         } catch (IllegalArgumentException e) {
-            throw e; // bubble up clean API error
+            throw e; 
         } catch (Exception e) {
             throw new RuntimeException(
                 "Failed to resolve TfL StopPoint for " + station.getName(), e
@@ -78,12 +78,12 @@ public class RoutingService {
     }
 
 
-    //Single-leg TfL routing from -> to.
+    //Single leg TfL routing (from) -> (to).
     public String routeStationToStation(Station from, Station to) {
         String fromId = resolveStopPointId(from);
         String toId = resolveStopPointId(to);
 
-        // Use a 5-minute bucket for caching so repeated clicks don't hammer TfL.
+        // Use a 5-minute bucket for caching 
         String departAtRounded5 = roundNowTo5MinKey();
 
         //Default options for single-leg include everything + fastest
@@ -131,13 +131,12 @@ public class RoutingService {
         RouteOptions options = new RouteOptions(sortBy, includeBus, includeTram);
         String modesCsv = buildModesCsv(includeBus, includeTram);
 
-        // Resolve all ids once 
+        // Resolve all ids at once 
         List<String> ids = new ArrayList<>();
         for (Station s : stops) {
             ids.add(resolveStopPointId(s));
         }
 
-        // Use one rounded departAt bucket for the multi-leg request
         // keeps cache keys consistent across legs in the same button click
         String departAtRounded5 = roundNowTo5MinKey();
 
@@ -181,7 +180,6 @@ public class RoutingService {
     }
 
     // HELPERS
-
     // Options used to choose the best journey from the TfL API response.
     private record RouteOptions(
             RoutingController.SortBy sortBy,
@@ -287,8 +285,7 @@ public class RoutingService {
     }
 
 
-     //Estimate interchanges: count non-walking legs and subtract 1.
-     //(If only walked, interchanges should be 0.)
+     //Estimate interchanges by counting non-walking legs and subtracting 1.
     private int estimateInterchanges(JsonNode legs) {
         if (legs == null || !legs.isArray() || legs.size() == 0) return 0;
 
@@ -375,13 +372,11 @@ public class RoutingService {
             int transfersBest = estimateInterchanges(best.get("legs"));
 
             if (sortBy == RoutingController.SortBy.FEWEST_TRANSFERS) {
-                // Primary: fewest interchanges, tie-break: shortest duration
                 if (transfersCandidate < transfersBest
                         || (transfersCandidate == transfersBest && durCandidate < durBest)) {
                     best = candidate;
                 }
             } else {
-                // FASTEST default: shortest duration, tie-break: fewest interchanges
                 if (durCandidate < durBest
                         || (durCandidate == durBest && transfersCandidate < transfersBest)) {
                     best = candidate;

@@ -2,16 +2,14 @@ import React from "react";
 import type { RouteMultiOptions, SortBy } from "../services/api";
 
 type Props = {
-  // Current options state (sort + toggles)
+  // Current options state 
   options: RouteMultiOptions;
 
-  // Parent passes a setter (we call it whenever user toggles something)
+  // Parent passes a setter 
   onChange: (next: RouteMultiOptions) => void;
 };
 
-/**
- * A small “chip” button like Google Maps filters.
- */
+//A small “chip” button 
 function ChipButton({
   label,
   active,
@@ -53,12 +51,7 @@ function ChipButton({
   );
 }
 
-/**
- * Google Maps style options bar:
- * - Bus toggle
- * - Tram toggle
- * - Route preference dropdown (Fastest / Fewest transfers)
- */
+//options bar
 export default function RouteOptionsBar({ options, onChange }: Props) {
   // Default behaviour: include everything until UI is fully built
   const sortBy: SortBy = options.sortBy ?? "FASTEST";

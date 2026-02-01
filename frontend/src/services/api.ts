@@ -89,7 +89,7 @@ export async function routeMulti(
 async function throwApiError(res: Response): Promise<never> {
   let data: any = null;
 
-  // Try JSON first (but do NOT throw inside this try, or you'll catch your own error)
+  // Try JSON first 
   try {
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {

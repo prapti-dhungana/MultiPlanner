@@ -19,7 +19,7 @@ export function StationSearch({ label, placeholder, value, onChange }: Props) {
 
   const [suppressSearch, setSuppressSearch] = React.useState(false);
 
-  // If parent changes selected value (e.g., after reorder), keep input text in sync
+  // If parent changes selected value, keep input text in sync
   React.useEffect(() => {
     setQuery(value?.name ?? "");
   }, [value?.code]); // use code so it doesn't reset while typing
@@ -44,7 +44,7 @@ export function StationSearch({ label, placeholder, value, onChange }: Props) {
       .then((stations) => setResults(stations))
       .catch((err) => setError(String(err)))
       .finally(() => setLoading(false));
-  }, [debouncedQuery]); // keep your MVP behavior
+  }, [debouncedQuery]); 
 
   return (
     <div style={{ maxWidth: 520 }}>
