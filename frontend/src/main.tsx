@@ -2,8 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { StationSearch } from "./components/StationSearch";
 import { Station } from "./services/stations";
-import { routeLeg } from "./services/api";
-
+import { routeLeg, routeMulti } from "./services/api";
 
 type Stop = Station | null;
 
@@ -53,8 +52,7 @@ function App() {
   const [routeError, setRouteError] = React.useState<string | null>(null);
   const [routing, setRouting] = React.useState(false);
 
-  const from = selection.from;
-  const to = selection.to;
+  const selectedStops = stops.filter((s): s is Station => s !== null);
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui" }}>
@@ -110,23 +108,28 @@ function App() {
             Add stop
           </button>
 
-          <button
-            type="button"
-            onClick={() => setStops([null, null])}
-            style={{ marginLeft: 8 }}
-          >
+          <button type="button" onClick={() => setStops([null, null])}>
             Reset
           </button>
 
           <button
             type="button"
-            disabled={!from || !to || routing}
+            disabled={selectedStops.length < 2 || routing}
             onClick={async () => {
-              if (!from || !to) return;
               setRouting(true);
               setRouteError(null);
+              setRouteResult(null);
+
               try {
-                const data = await routeLeg(from, to);
+                let data: any;
+
+                // If there are intermediate stops, call multi; otherwise single-leg.
+                if (selectedStops.length > 2) {
+                  data = await routeMulti(selectedStops);
+                } else {
+                  data = await routeLeg(selectedStops[0], selectedStops[1]);
+                }
+
                 setRouteResult(data);
               } catch (e) {
                 setRouteError(String(e));
@@ -138,10 +141,30 @@ function App() {
             {routing ? "Routing..." : "Route"}
           </button>
         </div>
-        
+
         {routeError && <p style={{ color: "crimson" }}>Error: {routeError}</p>}
-        {routeResult && <pre>{JSON.stringify(routeResult, null, 2)}</pre>}
-      
+
+        {routeResult && (
+          <pre style={{ marginTop: 8 }}>{JSON.stringify(routeResult, null, 2)}</pre>
+        )}
+
+        {/* Optional: quick readable summary for multi-stop */}
+        {routeResult?.results && (
+          <div style={{ marginTop: 12 }}>
+            <h3>Leg summary</h3>
+            <ul>
+              {routeResult.results.map((leg: any, idx: number) => {
+                const j = leg.journey?.journeys?.[0];
+                return (
+                  <li key={idx}>
+                    <strong>{leg.fromName}</strong> → <strong>{leg.toName}</strong>
+                    {j ? ` (${j.duration} min)` : ""}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
