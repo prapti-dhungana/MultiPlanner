@@ -7,6 +7,16 @@ spring:
     username: multiplanner
     password: multiplanner
     driver-class-name: org.postgresql.Driver
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000 # 5 minutes in ms
 
 tfl:
   base-url: https://api.tfl.gov.uk

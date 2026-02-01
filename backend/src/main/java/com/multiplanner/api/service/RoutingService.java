@@ -8,6 +8,10 @@ import com.multiplanner.api.client.TflClient;
 import com.multiplanner.api.model.Station;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,10 +20,12 @@ public class RoutingService {
 
     private final TflClient tflClient;
     private final ObjectMapper objectMapper;
+    private final JourneyCacheService journeyCacheService;
 
-    public RoutingService(TflClient tflClient, ObjectMapper objectMapper) {
+    public RoutingService(TflClient tflClient, ObjectMapper objectMapper, JourneyCacheService journeyCacheService) {
         this.tflClient = tflClient;
         this.objectMapper = objectMapper;
+        this.journeyCacheService = journeyCacheService;
     }
 
     /**
@@ -32,7 +38,7 @@ public class RoutingService {
         }
 
         try {
-            String json = tflClient.searchStopPoints(station.getName());
+            String json = journeyCacheService.cachedStopPointSearch(station.getName());
             JsonNode root = objectMapper.readTree(json);
 
             JsonNode matches = root.get("matches");
@@ -58,7 +64,13 @@ public class RoutingService {
     public String routeStationToStation(Station from, Station to) {
         String fromId = resolveStopPointId(from);
         String toId = resolveStopPointId(to);
-        return tflClient.journeyResults(fromId, toId);
+
+        // Cache key includes a "departAt" bucket rounded to 5 minutes
+        // so repeated calls within that window don't hammer TfL.
+        String departAtRounded5 = roundNowTo5MinKey();
+
+        // call TfL once; result is cached
+        return journeyCacheService.journeyResults(fromId, toId, departAtRounded5);
     }
 
     /**
@@ -84,6 +96,10 @@ public class RoutingService {
             ids.add(resolveStopPointId(s));
         }
 
+        // Use one rounded departAt bucket for the whole multi-leg request
+        // (keeps cache keys consistent across legs in the same button click).
+        String departAtRounded5 = roundNowTo5MinKey();
+
         try {
             ArrayNode results = objectMapper.createArrayNode();
 
@@ -94,7 +110,8 @@ public class RoutingService {
                 String fromId = ids.get(i);
                 String toId = ids.get(i + 1);
 
-                String journeyJson = tflClient.journeyResults(fromId, toId);
+                // Use cached journey results per leg (fromId -> toId)
+                String journeyJson = journeyCacheService.journeyResults(fromId, toId, departAtRounded5);
 
                 ObjectNode leg = objectMapper.createObjectNode();
                 leg.put("fromName", from.getName());
@@ -115,5 +132,22 @@ public class RoutingService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to build multi-route response", e);
         }
+    }
+
+    /**
+     * Helper: round "now" to a 5-minute bucket for cache keys.
+     * Example output: 2026-02-01T08:25Z
+     */
+    private String roundNowTo5MinKey() {
+        ZonedDateTime now = ZonedDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
+        int minute = now.getMinute();
+        int rounded = (minute / 5) * 5;
+
+        ZonedDateTime roundedTime = now
+            .withMinute(rounded)
+            .withSecond(0)
+            .withNano(0);
+
+        return roundedTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'"));
     }
 }
