@@ -1,7 +1,8 @@
 server:
-  port: 8081
+  port: 8081 # Run API on a non-default port to avoid frontend conflicts
 
 spring:
+# Local PostgreSQL database for station search
   datasource:
     url: jdbc:postgresql://localhost:5432/multiplanner
     username: multiplanner
@@ -10,14 +11,16 @@ spring:
   
   data:
     redis:
+    # Redis used for caching TfL API responses
       host: localhost
       port: 6379
 
   cache:
     type: redis
     redis:
-      time-to-live: 300000 # 5 minutes in ms
+    # Cache TTL aligned with routing time bucketing (5 minutes)
+      time-to-live: 300000
 
 tfl:
-  base-url: https://api.tfl.gov.uk
-  app-key: ${TFL_APP_KEY:}
+  base-url: https://api.tfl.gov.uk # TfL Unified API base URL
+  app-key: ${TFL_APP_KEY:}  # API key injected via environment variable

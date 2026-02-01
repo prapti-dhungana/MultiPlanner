@@ -20,35 +20,37 @@ public class RoutingController {
         this.routingService = routingService;
     }
 
-    //Single-leg (From -> To)
+    //Single-leg route (From -> To).
     @PostMapping("/route")
     public String route(@RequestBody RouteRequest request) {
         return routingService.routeStationToStation(request.from(), request.to());
     }
 
-    //Multi-leg (From -> Stop1 -> Stop2 -> To)
+    //Multi-leg route (From -> Stop1 -> ... -> To).
     @PostMapping("/route/multi")
     public String routeMulti(@RequestBody MultiRouteRequest request) {
         return routingService.routeMulti(
-            request.stops(),
-            request.preferences(),
-            request.modes()
+                request.stops(),
+                request.preferences(),
+                request.modes()
         );
     }
 
-    //Request body for single leg route
+    // Request body for single-leg routing.
     public record RouteRequest(Station from, Station to) {}
 
-    //Request body for multi-leg route
+    //Request body for multi-leg routing.
     public record MultiRouteRequest(
-        List<Station> stops,
-        Preferences preferences,
-        Modes modes
+            List<Station> stops,
+            Preferences preferences,
+            Modes modes
     ) {}
 
-    public record Preferences(SortBy sortBy) {} 
+    //Sorting preference for selecting the best journey option returned by TfL.
+    public record Preferences(SortBy sortBy) {}
 
-    public record Modes(Boolean includeBus, Boolean includeTram) {} 
+    //Transport mode toggles for filtering TfL journey options.
+    public record Modes(Boolean includeBus, Boolean includeTram) {}
 
-    public enum SortBy { FASTEST, FEWEST_TRANSFERS } 
+    public enum SortBy { FASTEST, FEWEST_TRANSFERS }
 }

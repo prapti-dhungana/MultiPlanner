@@ -3,6 +3,13 @@ package com.multiplanner.api.service;
 import com.multiplanner.api.client.TflClient;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+/**
+ * Caching layer for external TfL API calls.
+ *
+ * This service wraps {@link TflClient} to:
+ * - avoid repeated external requests
+ * - keep routing logic independent of caching concerns
+ */
 
 @Service
 public class JourneyCacheService {
@@ -13,6 +20,7 @@ public class JourneyCacheService {
         this.tflClient = tflClient;
     }
 
+    //Retrieves journey results between two StopPoint IDs 
     @Cacheable(
         cacheNames = "journeys",
         key = "'journey:from:' + #fromId + ':to:' + #toId + ':departAt:' + #departAtRounded5 + ':modes:' + (#modesCsv == null ? '' : #modesCsv)"
@@ -22,6 +30,7 @@ public class JourneyCacheService {
         return tflClient.journeyResults(fromId, toId, modesCsv);
     }
 
+    //Cached lookup of TfL StopPoints by station name.
     @Cacheable(
         cacheNames = "stopPoints",
         key = "'stopPoint:' + #stationName.toLowerCase()"

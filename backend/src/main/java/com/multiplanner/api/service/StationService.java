@@ -4,7 +4,7 @@ import com.multiplanner.api.model.Station;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-
+//Application service for station lookup.
 @Service
 public class StationService {
 
