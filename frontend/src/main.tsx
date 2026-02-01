@@ -1,11 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+
+import RouteOptionsBar from "./components/RouteOptionsBar";
 import { StationSearch } from "./components/StationSearch";
-import { Station } from "./services/stations";
-import { routeMulti, MultiRouteResponse, LegSummary, Segment } from "./services/api";
+
+import type { Station } from "./services/stations";
+import { routeMulti } from "./services/api";
+import type { MultiRouteResponse, LegSummary, Segment, RouteMultiOptions } from "./services/api";
 
 type Stop = Station | null;
 
+/**
+ * Format minutes nicely (e.g., 14 min, 1h, 1h 10m)
+ */
 function formatMinutes(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -14,6 +21,9 @@ function formatMinutes(mins: number) {
   return `${h}h ${m}m`;
 }
 
+/**
+ * Convert TfL mode ids into nicer labels.
+ */
 function prettyMode(mode: string | null | undefined) {
   if (!mode) return "Travel";
   const m = mode.toLowerCase();
@@ -23,6 +33,7 @@ function prettyMode(mode: string | null | undefined) {
   if (m === "dlr") return "DLR";
   if (m === "overground") return "Overground";
   if (m === "national-rail" || m === "nationalrail") return "National Rail";
+  if (m === "elizabeth-line") return "Elizabeth line";
   return mode;
 }
 
@@ -90,7 +101,15 @@ function LegCard({ leg, index }: { leg: LegSummary; index: number }) {
 }
 
 function App() {
-  const [stops, setStops] = React.useState<Stop[]>([null, null]); // From, To
+  // Stops list: [From, ...ViaStops, To]
+  const [stops, setStops] = React.useState<Stop[]>([null, null]);
+
+  //default = include everything 
+  const [options, setOptions] = React.useState<RouteMultiOptions>({
+    includeBus: true,
+    includeTram: true,
+    sortBy: "FASTEST",
+  });
 
   const setStopAt = (idx: number, station: Station | null) => {
     setStops((prev) => {
@@ -193,10 +212,28 @@ function App() {
               onChange={(s) => setStopAt(stops.length - 1, s)}
             />
 
+            {/* options bar with bus/tram toggles + sort preference) */}
+            <RouteOptionsBar options={options} onChange={setOptions} />
+
+            {/* Buttons row */}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <button type="button" onClick={addStop}>Add stop</button>
 
-              <button type="button" onClick={() => setStops([null, null])}>
+              <button
+                type="button"
+                onClick={() => {
+                  setStops([null, null]);
+                  setRouteResult(null);
+                  setRouteError(null);
+
+                  // Reset options back to defaults as well
+                  setOptions({
+                    includeBus: true,
+                    includeTram: true,
+                    sortBy: "FASTEST",
+                  });
+                }}
+              >
                 Reset
               </button>
 
@@ -224,7 +261,8 @@ function App() {
                   setRouteResult(null);
 
                   try {
-                    const data = await routeMulti(all);
+                    //  Send options to backend 
+                    const data = await routeMulti(all, options);
                     setRouteResult(data);
                   } catch (e) {
                     setRouteError(String(e));
@@ -262,18 +300,23 @@ function App() {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>
-                  Trip summary
-                </div>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>Trip summary</div>
+
                 <div style={{ display: "flex", gap: 16, color: "#333", fontWeight: 700 }}>
                   <div>Total: {formatMinutes(routeResult.totalDurationMinutes)}</div>
-                  <div>
-                    Changes: {routeResult.totalInterchanges}
-                  </div>
+                  <div>Changes: {routeResult.totalInterchanges}</div>
                 </div>
               </div>
+
               <div style={{ marginTop: 6, color: "#666" }}>
                 {routeResult.legs} leg{routeResult.legs === 1 ? "" : "s"}
+              </div>
+
+              {/* Tiny “Maps style” line showing current options */}
+              <div style={{ marginTop: 8, fontSize: 13, color: "#666" }}>
+                {options.sortBy === "FASTEST" ? "Fastest route" : "Fewest transfers"} •{" "}
+                {options.includeBus ? "Bus" : "No bus"} •{" "}
+                {options.includeTram ? "Tram" : "No tram"}
               </div>
             </div>
 

@@ -15,11 +15,11 @@ public class JourneyCacheService {
 
     @Cacheable(
         cacheNames = "journeys",
-        key = "'journey:from:' + #fromId + ':to:' + #toId + ':departAt:' + #departAtRounded5"
+        key = "'journey:from:' + #fromId + ':to:' + #toId + ':departAt:' + #departAtRounded5 + ':modes:' + (#modesCsv == null ? '' : #modesCsv)"
     )
-    public String journeyResults(String fromId, String toId, String departAtRounded5) {
-        // call TfL once; result is cached
-        return tflClient.journeyResults(fromId, toId);
+    public String journeyResults(String fromId, String toId, String departAtRounded5, String modesCsv) {
+        // departAtRounded5 is used only for caching bucketing
+        return tflClient.journeyResults(fromId, toId, modesCsv);
     }
 
     @Cacheable(
@@ -29,5 +29,4 @@ public class JourneyCacheService {
     public String cachedStopPointSearch(String stationName) {
         return tflClient.searchStopPoints(stationName);
     }
-
 }

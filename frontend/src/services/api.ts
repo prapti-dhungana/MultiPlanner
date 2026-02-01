@@ -13,6 +13,15 @@ export async function fetchHealth(): Promise<HealthResponse> {
   return (await res.json()) as HealthResponse;
 }
 
+export type SortBy = "FASTEST" | "FEWEST_TRANSFERS";
+
+export type RouteMultiOptions = {
+  sortBy?: SortBy;
+  includeBus?: boolean;
+  includeTram?: boolean;
+};
+
+
 export type Segment = {
   mode: string | null;
   line?: string;
@@ -54,13 +63,27 @@ export async function routeLeg(from: Station, to: Station): Promise<LegSummary> 
   return (await res.json()) as LegSummary;
 }
 
-export async function routeMulti(stops: Station[]): Promise<MultiRouteResponse> {
+export async function routeMulti(
+  stops: Station[],
+  options: RouteMultiOptions = {}
+): Promise<MultiRouteResponse> {
   const res = await fetch("/api/route/multi", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ stops }),
+    body: JSON.stringify({
+      stops,
+      preferences: {
+        sortBy: options.sortBy ?? "FASTEST",
+      },
+      modes: {
+        includeBus: options.includeBus ?? true,
+        includeTram: options.includeTram ?? true,
+      },
+    }),
   });
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as MultiRouteResponse;
 }
+
+
