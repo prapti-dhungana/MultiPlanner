@@ -7,3 +7,7 @@ spring:
     username: multiplanner
     password: multiplanner
     driver-class-name: org.postgresql.Driver
+
+tfl:
+  base-url: https://api.tfl.gov.uk
+  app-key: ${TFL_APP_KEY:}

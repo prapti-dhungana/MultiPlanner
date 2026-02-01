@@ -2,6 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { StationSearch } from "./components/StationSearch";
 import { Station } from "./services/stations";
+import { routeLeg } from "./services/api";
+
 
 type Stop = Station | null;
 
@@ -46,6 +48,13 @@ function App() {
     via: stops.slice(1, -1),
     to: stops[stops.length - 1],
   };
+
+  const [routeResult, setRouteResult] = React.useState<any>(null);
+  const [routeError, setRouteError] = React.useState<string | null>(null);
+  const [routing, setRouting] = React.useState(false);
+
+  const from = selection.from;
+  const to = selection.to;
 
   return (
     <div style={{ padding: 16, fontFamily: "system-ui" }}>
@@ -108,7 +117,31 @@ function App() {
           >
             Reset
           </button>
+
+          <button
+            type="button"
+            disabled={!from || !to || routing}
+            onClick={async () => {
+              if (!from || !to) return;
+              setRouting(true);
+              setRouteError(null);
+              try {
+                const data = await routeLeg(from, to);
+                setRouteResult(data);
+              } catch (e) {
+                setRouteError(String(e));
+              } finally {
+                setRouting(false);
+              }
+            }}
+          >
+            {routing ? "Routing..." : "Route"}
+          </button>
         </div>
+        
+        {routeError && <p style={{ color: "crimson" }}>Error: {routeError}</p>}
+        {routeResult && <pre>{JSON.stringify(routeResult, null, 2)}</pre>}
+      
       </div>
     </div>
   );
