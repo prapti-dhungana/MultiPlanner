@@ -36,7 +36,23 @@ The goal is to explore:
 - `.github/` – CI workflows
 
 ## Running Locally
-> Setup instructions will be added once the initial backend and frontend scaffolding is complete.
+This project uses the Transport for London (TfL) Unified API.
+
+1. Create a TfL API key at https://api-portal.tfl.gov.uk/
+2. Copy `.env.example` to `.env`
+3. Add your key:
+
+   TFL_APP_KEY=your_key_here
+
+4. Start the backend:
+   cd backend
+   mvn spring-boot:run
+
+4. Start the frontend:
+    cd frontend
+    npm install
+    npm run dev
+ 
 
 ## Project Status
 
