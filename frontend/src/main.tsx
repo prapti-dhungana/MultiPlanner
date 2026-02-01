@@ -158,7 +158,7 @@ function App() {
         <div>
           <h1 style={{ margin: 0 }}>MultiPlanner</h1>
           <p style={{ marginTop: 6, color: "#444" }}>
-            Station autocomplete (DB) + add/reorder stops + TfL routing
+            Plan your journey and add your stops...
           </p>
         </div>
 
