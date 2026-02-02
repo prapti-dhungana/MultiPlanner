@@ -1,26 +1,11 @@
 # MultiPlanner
-
-A full-stack web application for planning multi-stop rail journeys with an emphasis on route optimisation.
-
-Users can search stations, add and reorder intermediate stops, and compute the best overall itinerary using live Transport for London (TfL) routing data.
-
-
-## Why this project?
-
-Most journey planners optimise for a single origin to destination model.
-However, in reality, many journeys can involve many intermediate stops (e.g. meeting someone or planning a trip).
-
-MultiPlanner focuses on:
-- explicit multi-stop routing
-- reasoning about journeys across multiple legs
-- modelling how large transport platforms structure routing, caching, and APIs
-
-The project is primarily an exploration of system design and backend architecture, rather than just UI.
+MultiPlanner is a full-stack web application for planning journeys with multiple stops across London.
+Users can search stations, add and reorder stops, and generate an optimal route using live Transport for London (TfL) journey data.
 
 
 ## Core Features
 
-- **Autocomplete Station Search**
+- **Station Search**
   - Backed by a PostgreSQL NaPTAN dataset (London rail stations only for now)
   - No external API calls for search
 
@@ -29,88 +14,83 @@ The project is primarily an exploration of system design and backend architectur
   - Routes are computed per adjacent leg and combined
 
 - **Routing options**
-  - Fastest vs fewest-changes sorting
-  - Transport mode filtering (bus, tram; extensible)
+  - Sort by fastest or fewest changes
+  - Transport mode filtering (bus, tram)
+  - Designed to be easily extensible to additional modes
 
 - **Journey breakdown**
   - Per-leg summaries
-  - Segment-level details (mode, line, direction, duration)
+  - Segment-level details (transport mode, line, direction, duration)
 
 - **Caching for performance**
   - Redis-backed caching for:
     - station lookups
     - TfL journey results (5-minute time buckets)
+  - Reduces API calls and improves response times
 
 
 ## Architecture Overview
 
 ### Backend (Spring Boot, Java)
-
 - **Layered architecture**
   - `controller` – REST endpoints and request validation
-  - `service` – routing logic, TfL integration, optimisation rules
+  - `service` – routing logic, TfL integration and optimisation rules
   - `repository` – database access (station search)
   - `client` – external API calls (TfL)
-  - `config` – CORS, caching, exception handling
+  - `config` – caching and exception handling
 
-- **design**
+- **design decisions**
   - Station search is DB-backed (NaPTAN), not API-backed
   - Routing is composed of independent leg computations
-  - Business logic lives entirely in services
+  - All business logic lives in the service layer
   - Controllers are thin and declarative
   - Global exception handler provides clean API errors
 
 ### Frontend (React + TypeScript + Vite)
-
-- Component-based structure:
+- Component-based design
+- Key Components:
   - `StationSearch` – debounced autocomplete
   - `RouteOptionsBar` – stylised filters
   - Service layer for API calls and error handling
+- Dedicated service layer for API calls and error handling
+- Frontend served via Nginx in production
 
-## Running Locally
-
-This project uses the Transport for London Unified API.
-You must create an account to acces their free api key 
-
+# Running Locally
+The application is designed to be easy to run with Docker.
 
 ### Prerequisites
-- Java 21
-- Maven
-- Node.js (18+ recommended)
-- TfL API key
-- Docker for Postgres + Redis
-
+- Docker & Docker Compose
+- TfL API key (free)
 
 ### Setup
-
-1. Create a TfL API key  
+1.  Register for an API Key here:
    https://api-portal.tfl.gov.uk/
 
-2. Configure environment variables at root:
+2. Configure the API Key
+   - At project root, copy contents of .env_example into (newFile) .env
+   - e.g. on linux:
    ```bash
-   touch .env
-   cp .env.example .env
+   cp .env_example .env
 
-3. Add your key:
+3. Add your key into .env:
+   - Open .env file and edit its contents
+   - e.g:
    ```bash
-   TFL_APP_KEY=your_key_here
+   nano .env
 
-4. Load postgres
+   //inside file:
+   TFL_APP_KEY=paste_your_key_here  
+
+5. Start the Application:
    ```bash
-   cd infra
-   docker compose up -d
+   docker compose up --build
 
-4. Start the backend
-   ```bash
-   cd backend
-   mvn spring-boot:run
+- View Frontend: http://localhost:8080
+- Backend API: proxied internally via /api/*
+- Postgres and Redis are fully containerised
 
-5. Start the frontened
-   ```bash
-   npm ci
-   npm run dev
 
-### Application
+### Screenshots
 <img width="1175" height="908" alt="image" src="https://github.com/user-attachments/assets/5c62b2fd-2624-46b4-bcd7-2ce4476564cf" />
 
 <img width="593" height="886" alt="image" src="https://github.com/user-attachments/assets/3b641f89-c183-42be-801f-34b859d20514" />
