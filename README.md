@@ -70,21 +70,24 @@ The application is designed to be easy to run with Docker.
    - At project root, copy contents of .env_example into (newFile) .env
    - e.g. on linux:
    ```bash
-   touch .env
    cp .env_example .env
 
 3. Add your key into .env:
+   - Open .env file and edit its contents
+   - e.g:
    ```bash
-   TFL_APP_KEY=your_key_here
+   nano .env
 
-4. Start the Application:
+   //inside file:
+   TFL_APP_KEY=paste_your_key_here  
+
+5. Start the Application:
    ```bash
    docker compose up --build
 
 - View Frontend: http://localhost:8080
 - Backend API: proxied internally via /api/*
 - Postgres and Redis are fully containerised
-- No local Java, Node, Postgres, or Redis installs required.
 
 
 ### Screenshots
