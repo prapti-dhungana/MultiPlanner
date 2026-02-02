@@ -82,7 +82,10 @@ The application is designed to be easy to run with Docker.
    TFL_APP_KEY=paste_your_key_here  
 
 5. Start the Application:
+   - enter infra directory where docker is located
+   - build docker
    ```bash
+   cd infra
    docker compose up --build
 
 - View Frontend: http://localhost:8080
