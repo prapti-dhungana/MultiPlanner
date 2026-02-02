@@ -1,19 +1,21 @@
 server:
-  port: 8081 # Run API on a non-default port to avoid frontend conflicts
+  port: ${SERVER_PORT:8080} 
+  error:
+    include-message: always #temp debug
 
 spring:
 # Local PostgreSQL database for station search
   datasource:
-    url: jdbc:postgresql://localhost:5432/multiplanner
-    username: multiplanner
-    password: multiplanner
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/multiplanner}
+    username: ${SPRING_DATASOURCE_USERNAME:multiplanner}
+    password: ${SPRING_DATASOURCE_PASSWORD:multiplanner}
     driver-class-name: org.postgresql.Driver
   
   data:
     redis:
     # Redis used for caching TfL API responses
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
   cache:
     type: redis

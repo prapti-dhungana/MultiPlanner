@@ -1,8 +1,10 @@
 package com.multiplanner.api.client;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
@@ -16,10 +18,11 @@ public class TflClient {
             @Value("${tfl.base-url}") String baseUrl,
             @Value("${tfl.app-key}") String appKey
     ) {
-        if (baseUrl == null || appKey == null) {
+
+        if (baseUrl == null || baseUrl.isBlank() || appKey == null || appKey.isBlank()) {
             throw new IllegalStateException("TfL base URL and app key must be configured");
         }
-        
+
         this.baseUrl = baseUrl;
         this.appKey = appKey;
         this.restClient = RestClient.create();
@@ -34,31 +37,53 @@ public class TflClient {
                 .buildAndExpand(query)
                 .toUriString();
 
-        return restClient.get()
-                .uri(url)
-                .retrieve()
-                .body(String.class);
+        try {
+            return restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    // Convert TfL 4xx into a readable IllegalArgumentException 
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        throw new IllegalArgumentException("TfL StopPoint search rejected the request");
+                    })
+                    .body(String.class);
+        } catch (RestClientResponseException e) {
+            // keep message readable for the API client
+            throw new IllegalArgumentException("TfL StopPoint search failed: HTTP " + e.getStatusCode(), e);
+        }
     }
 
-    // Journey planner between two stop ids 
-        public String journeyResults(String fromStopId, String toStopId, String modesCsv) {
+    // Journey planner between two stop ids
+    public String journeyResults(String fromStopId, String toStopId, String modesCsv) {
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromHttpUrl(baseUrl)
                 .path("/Journey/JourneyResults/{from}/to/{to}")
                 .queryParam("app_key", appKey);
 
         if (modesCsv != null && !modesCsv.isBlank()) {
-                builder.queryParam("mode", modesCsv);
+            builder.queryParam("mode", modesCsv);
         }
 
         String url = builder
                 .buildAndExpand(fromStopId, toStopId)
                 .toUriString();
 
-        return restClient.get()
-                .uri(url)
-                .retrieve()
-                .body(String.class);
+        try {
+            return restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    // Convert TfL 4xx into a readable IllegalArgumentException 
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        throw new IllegalArgumentException("TfL JourneyResults rejected the request");
+                    })
+                    .body(String.class);
+        } catch (RestClientResponseException e) {
+            // keep message readable for the API client
+            throw new IllegalArgumentException(
+                    "TfL JourneyResults failed: HTTP " + e.getStatusCode()
+                            + " (from=" + fromStopId + ", to=" + toStopId + ")",
+                    e
+            );
         }
+    }
 
 }

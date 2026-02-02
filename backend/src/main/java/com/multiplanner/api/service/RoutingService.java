@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.multiplanner.api.controller.RoutingController;
 import com.multiplanner.api.model.Station;
+
+import reactor.core.publisher.Sinks.Many;
+
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -32,10 +35,28 @@ public class RoutingService {
         this.journeyCacheService = journeyCacheService;
     }
     
-  //Resolve a Station into a TfL StopPoint ID.
+    //Resolve a Station into a TfL StopPoint ID.
     public String resolveStopPointId(Station station) {
         if (station == null) {
             throw new IllegalArgumentException("Station is required");
+        }
+
+        //  Prefer TfL search by name first (most reliable)
+        if (station.getName() != null && !station.getName().isBlank()) {
+            try {
+                String json = journeyCacheService.cachedStopPointSearch(station.getName());
+                JsonNode root = objectMapper.readTree(json);
+
+                JsonNode matches = root.get("matches");
+                if (matches != null && matches.isArray() && !matches.isEmpty()) {
+                    JsonNode id = matches.get(0).get("id");
+                    if (id != null && !id.asText().isBlank()) {
+                        return id.asText();
+                    }
+                }
+            } catch (Exception e) {
+                // If search fails, fall back to code below
+            }
         }
 
         // Prefer DB-backed StopPoint 
@@ -43,40 +64,8 @@ public class RoutingService {
             return station.getCode();
         }
 
-        //  No code, then fall back to TfL search by name
-        if (station.getName() == null || station.getName().isBlank()) {
-            throw new IllegalArgumentException("Station name is required");
-        }
-
-        try {
-            String json = journeyCacheService.cachedStopPointSearch(station.getName());
-            JsonNode root = objectMapper.readTree(json);
-
-            JsonNode matches = root.get("matches");
-            if (matches == null || !matches.isArray() || matches.isEmpty()) {
-                throw new IllegalArgumentException(
-                    "No TfL StopPoint match for " + station.getName()
-                );
-            }
-
-            JsonNode id = matches.get(0).get("id");
-            if (id == null || id.asText().isBlank()) {
-                throw new IllegalArgumentException(
-                    "TfL StopPoint match missing id for " + station.getName()
-                );
-            }
-
-            return id.asText();
-
-        } catch (IllegalArgumentException e) {
-            throw e; 
-        } catch (Exception e) {
-            throw new RuntimeException(
-                "Failed to resolve TfL StopPoint for " + station.getName(), e
-            );
-        }
+        throw new IllegalArgumentException("Station name is required");
     }
-
 
     //Single leg TfL routing (from) -> (to).
     public String routeStationToStation(Station from, Station to) {
@@ -226,8 +215,14 @@ public class RoutingService {
 
         JsonNode journeys = root.get("journeys");
         if (journeys == null || !journeys.isArray() || journeys.size() == 0) {
+            // If TfL returned an error payload, surface that message
+            JsonNode message = root.get("message");
+            if (message != null && !message.asText().isBlank()) {
+                throw new IllegalArgumentException("TfL: " + message.asText());
+            }
             throw new IllegalArgumentException("TfL returned no journeys");
         }
+
 
         JsonNode best = pickBestJourney((ArrayNode) journeys, sortBy, includeBus, includeTram);
 

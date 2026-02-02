@@ -29,6 +29,7 @@ public class RoutingController {
     //Multi-leg route (From -> Stop1 -> ... -> To).
     @PostMapping("/route/multi")
     public String routeMulti(@RequestBody MultiRouteRequest request) {
+        System.out.println("routeMulti request = " + request);
         return routingService.routeMulti(
                 request.stops(),
                 request.preferences(),
