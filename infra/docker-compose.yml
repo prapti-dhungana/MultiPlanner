@@ -19,8 +19,31 @@ services:
 
   redis:
     image: redis:7
+
+  backend:
+    build:
+      context: ../backend
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ../.env
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/multiplanner
+      SPRING_DATASOURCE_USERNAME: multiplanner
+      SPRING_DATASOURCE_PASSWORD: multiplanner
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+  frontend:
+    build:
+      context: ../frontend
+    depends_on:
+      - backend
     ports:
-      - "6379:6379"
+      - "8080:80"   
 
 volumes:
   pgdata:
+
