@@ -1,54 +1,46 @@
 package com.multiplanner.api.config;
 
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * Global API exception handler.
- * Keeps frontend errors clear and consistent.#
+ * Centralised API exception handling.
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    //Client errors (bad input, no journeys, invalid station, etc.)
     @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, Object> handleBadRequest(IllegalArgumentException ex, HttpServletRequest req) {
-        return errorBody("bad_request", ex.getMessage(), req.getRequestURI());
+    public ResponseEntity<Map<String, Object>> handleBadRequest(
+            IllegalArgumentException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(
+                        "timestamp", Instant.now().toString(),
+                        "error", "bad_request",
+                        "message", ex.getMessage()
+                ));
     }
 
-    // If someone opens a missing path, return 404 
-    @ExceptionHandler(NoResourceFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, Object> handleNotFound(NoResourceFoundException ex, HttpServletRequest req) {
-        return errorBody("not_found", "Endpoint not found", req.getRequestURI());
-    }
-
-    // Catch-all for real server failures
+    //Anything unexpected is a server error
     @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Map<String, Object> handleGeneric(Exception ex, HttpServletRequest req) {
-        return errorBody(
-            "internal_error",
-            "Something went wrong on the server.",
-            req.getRequestURI()
-        );
-    }
+    public ResponseEntity<Map<String, Object>> handleServerError(
+            Exception ex
+    ) {
+        ex.printStackTrace(); // IMPORTANT during development
 
-    private Map<String, Object> errorBody(String code, String message, String path) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("error", code);
-        body.put("message", message);
-        body.put("path", path);
-        return body;
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                        "timestamp", Instant.now().toString(),
+                        "error", "internal_error",
+                        "message", "Something went wrong on the server."
+                ));
     }
 }
