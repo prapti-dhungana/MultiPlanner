@@ -3,15 +3,15 @@
 export type Station = {
   code: string;
   name: string;
-  town?: string;
 };
 
 export async function searchStations(query: string): Promise<Station[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
+  // Call via Nginx proxy so we stay same-origin and avoid CORS issues.
   const res = await fetch(
-    `http://localhost:8081/api/stations?query=${encodeURIComponent(trimmed)}`
+    `/api/stations?query=${encodeURIComponent(trimmed)}`
   );
 
   if (!res.ok) {

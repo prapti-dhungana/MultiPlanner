@@ -7,8 +7,8 @@ export type HealthResponse = {
 };
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  // backend health endpoint 
-  const res = await fetch("/health");
+  // backend health endpoint
+  const res = await fetch("/api/health");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as HealthResponse;
 }
@@ -20,7 +20,6 @@ export type RouteMultiOptions = {
   includeBus?: boolean;
   includeTram?: boolean;
 };
-
 
 export type Segment = {
   mode: string | null;
@@ -89,7 +88,7 @@ export async function routeMulti(
 async function throwApiError(res: Response): Promise<never> {
   let data: any = null;
 
-  // Try JSON first 
+  // Try JSON first
   try {
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
@@ -101,7 +100,9 @@ async function throwApiError(res: Response): Promise<never> {
 
   // Prefer backend message/error fields
   const backendMsg =
-    (data && (data.message || data.error)) ? String(data.message || data.error) : "there are no journeys for this route";
+    (data && (data.message || data.error))
+      ? String(data.message || data.error)
+      : "there are no journeys for this route";
 
   // Fallback to plain text if JSON wasn't available/useful
   let textMsg = "";
@@ -116,6 +117,3 @@ async function throwApiError(res: Response): Promise<never> {
   const msg = backendMsg || textMsg || `HTTP ${res.status}`;
   throw new Error(msg);
 }
-
-
-
