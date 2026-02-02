@@ -91,6 +91,10 @@ The application is designed to be easy to run with Docker.
 - View Frontend: http://localhost:8080
 - Backend API: proxied internally via /api/*
 - Postgres and Redis are fully containerised
+- if there are errors when composing the docker run this:
+   ```bash
+   docker compose down
+   docker compose up --build
 
 
 ### Screenshots
