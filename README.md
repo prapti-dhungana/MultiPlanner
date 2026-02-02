@@ -5,7 +5,7 @@ Users can search stations, add and reorder stops, and generate an optimal route 
 
 ## Core Features
 
-- **Autocomplete Station Search**
+- **Station Search**
   - Backed by a PostgreSQL NaPTAN dataset (London rail stations only for now)
   - No external API calls for search
 
